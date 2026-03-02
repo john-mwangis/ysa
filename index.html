@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YouTube Segment Annotator v3 — Enhanced (Local + YouTube)</title>
+  <style>
+    /* =====================
+       ENHANCED THEME — colorful, modern
+       ===================== */
+    :root{
+      --bg-0: #061325; /* deep navy */
+      --bg-1: #071a31;
+      --card: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      --glass: rgba(255,255,255,0.03);
+      --muted: #a8c0ff;
+      --text: #eef6ff;
+      --accent1: #7c3aed; /* violet */
+      --accent2: #06b6d4; /* cyan */
+      --accent3: #f472b6; /* pink */
+      --accent4: #34d399; /* mint */
+      --danger: #ff6b6b;
+      --radius: 16px;
+      --radius-sm:10px;
+      --shadow: 0 10px 30px rgba(2,6,23,0.6);
+      --glass-border: rgba(255,255,255,0.04);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+      color:var(--text);
+      background: radial-gradient(800px 450px at 10% 20%, rgba(124,58,237,0.08), transparent 20%),
+                  radial-gradient(700px 450px at 90% 80%, rgba(6,182,212,0.06), transparent 18%),
+                  linear-gradient(180deg,var(--bg-0),var(--bg-1));
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+    }
+    .wrap{max-width:1200px;margin:0 auto}
+    h1{margin:0;font-size:1.6rem;letter-spacing:.3px}
+    .muted{color:var(--muted)}
+    .card{background:var(--card); border:1px solid var(--glass-border); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); backdrop-filter: blur(8px) saturate(120%);}
+    .row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .stack{display:flex;gap:8px;align-items:center}
+    input[type="text"],textarea,input[type="number"]{width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));color:var(--text)}
+    textarea{min-height:56px}
+    label{display:block;margin-bottom:6px;color:#dbeafe;font-weight:600}
+    .kbd{font-family:var(--mono);background:rgba(0,0,0,0.35);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
+    .timechip{font-variant-numeric:tabular-nums;padding:8px 12px;border-radius:999px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
+
+    /* buttons */
+    .btn{appearance:none;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:700;transition:transform .08s ease, box-shadow .12s ease}
+    .btn:hover{transform:translateY(-2px)}
+    .btn.primary{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#021022;border:none;box-shadow:0 8px 24px rgba(6,11,51,0.6);}
+    .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.04)}
+    .btn.warn{background:linear-gradient(90deg,#f59e0b,#f472b6);color:#081015;border:none}
+    .btn.danger{background:linear-gradient(90deg,#ff7a7a,#ffb3b3);color:#200101;border:none}
+
+    /* player area */
+    #playerShell{border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(2,6,23,0.7);background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));}
+    #player{width:100%;height:100%;display:block}
+    .player-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px}
+    .uploadwrap{display:flex;gap:8px;align-items:center}
+    .fileLabel{background:linear-gradient(90deg,var(--accent3),var(--accent4));padding:8px 12px;border-radius:10px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,0.06)}
+
+    /* table */
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    thead th{text-align:left;padding:10px;color:#c7e2ff}
+    tbody td{padding:10px;border-top:1px solid rgba(255,255,255,0.03)}
+    textarea.smallTa{min-height:44px}
+
+    /* responsive grid */
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media (max-width:900px){.row{grid-template-columns:1fr};.grid3{grid-template-columns:1fr}}
+
+    /* small helpers */
+    .muted.small{font-size:.9rem}
+    .right{text-align:right}
+    .nowrap{white-space:nowrap}
+    input[type='file']{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>YouTube Segment Annotator — Enhanced</h1>
+     
+    <div class="card mt12">
+      <div class="row">
+        <div>
+          <label for="ytUrl">YouTube URL or Video ID</label>
+          <input id="ytUrl" type="text" placeholder="https://www.youtube.com/watch?v=... OR paste video ID" />
+        </div>
+        <div class="stack">
+          <button class="btn primary" id="loadBtn">Load Video</button>
+        </div>
+      </div>
+
+      <div id="playerShell" style="margin-top:16px;aspect-ratio:16/9">
+        <div id="playerContainer" style="height:100%;display:flex;flex-direction:column">
+          <div class="player-toolbar">
+            <div class="uploadwrap">
+              <label class="fileLabel" for="localFile">📁 Upload Local Video</label>
+              <input id="localFile" type="file" accept="video/*">
+              <div class="muted small" id="sourceBadge">Source: <strong id="sourceType">None</strong></div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="timechip" id="liveTime">0:00.000</span>
+              <button class="btn ghost" id="switchBtn" title="Switch between YouTube/native (keeps time)">Switch View</button>
+            </div>
+          </div>
+          <div id="player" style="flex:1;display:flex;align-items:center;justify-content:center;background:#000"></div>
+        </div>
+      </div>
+
+      <div class="controls mt16">
+        <button class="btn" id="playBtn">▶︎ Play</button>
+        <button class="btn" id="togglePauseBtn">⏯ Pause</button>
+        <button class="btn" id="stopBtn">⏹ Stop</button>
+        <span class="muted small">(live clock updates while playing)</span>
+      </div>
+
+      <div class="controls mt8" aria-label="seek-controls">
+        <button class="btn" data-seek="-5000">⏪ −5s</button>
+        <button class="btn" data-seek="-1000">⏪ −1s</button>
+        <button class="btn" data-seek="-100">◀ −100ms</button>
+        <button class="btn" data-seek="100">+100ms ▶</button>
+        <button class="btn" data-seek="1000">⏩ +1s</button>
+        <button class="btn" data-seek="5000">⏩ +5s</button>
+      </div>
+
+      <div class="grid3 mt16">
+        <div>
+          <label>Mark In</label>
+          <div class="stack">
+            <button class="btn warn" id="markIn" disabled>Mark In (I)</button>
+            <span class="timechip" id="inVal">—</span>
+          </div>
+        </div>
+        <div>
+          <label>Mark Out</label>
+          <div class="stack">
+            <button class="btn warn" id="markOut" disabled>Mark Out (O)</button>
+            <span class="timechip" id="outVal">—</span>
+          </div>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <div class="stack">
+            <button class="btn" id="previewBlock">▶︎ Preview In→Out</button>
+            <button class="btn" id="clearMarks">Clear Marks</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt16">
+        <label for="titleLocal">Title - Local Language</label>
+        <textarea id="titleLocal" placeholder="Local language title..." required></textarea>
+      </div>
+      <div class="mt12">
+        <label for="titleTrans">Title - Translated</label>
+        <textarea id="titleTrans" placeholder="Translated title..."></textarea>
+      </div>
+
+      <div class="mt16 stack">
+        <button class="btn primary" id="addBlock">➕ Add Block</button>
+      </div>
+    </div>
+
+    <div class="card mt24">
+      <h2 class="mt0">Blocks</h2>
+      <div class="muted small mt8">Click ▶︎ to preview a block. Edit inline; changes auto‑save.</div>
+      <div class="mt12">
+        <table>
+          <thead>
+            <tr>
+              <th>Title - Local Language</th>
+              <th>Title - Translated</th>
+              <th>Mark In (ms)</th>
+              <th>Mark Out (ms)</th>
+              <th>Duration</th>
+              <th class="right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="blocksTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt24">
+      <h2 class="mt0">Data & Export</h2>
+      <div class="mt8 stack">
+        <label class="muted" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="autoDl" /> Enable Auto‑Download Backup (every 2 min)
+        </label>
+        <button class="btn" id="exportJsonBtn">⬇ Export JSON</button>
+        <button class="btn" id="exportSrtLocalBtn">🎞 Export SRT (Local)</button>
+        <button class="btn" id="exportSrtTransBtn">🎞 Export SRT (Translated)</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none" />
+        <button class="btn" id="importBtn">⬆ Import JSON</button>
+        <button class="btn danger" id="clearAllBtn">🗑 Clear All Blocks</button>
+      </div>
+      <div class="mt16">
+        <label>Saved JSON (read‑only snapshot)</label>
+        <textarea id="jsonView" readonly></textarea>
+      </div>
+      <div class="mt16">
+        <label>SRT Preview (Local)</label>
+        <textarea id="srtLocalView" readonly></textarea>
+      </div>
+      <div class="mt16">
+        <label>SRT Preview (Translated)</label>
+        <textarea id="srtTransView" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ---------- State ----------
+  let ytApiReady = false;
+  let ytPlayer = null; // YT iframe player
+  let nativeVideo = null; // HTML5 video element when local file loaded
+  let using = null; // 'youtube' | 'local' | null
+  let videoId = null;
+  let pollHandle = null;
+  let pausedTimeMs = null;
+  let liveMs = 0;
+  let markInMs = null, markOutMs = null;
+  let blocks = [];
+  let _previewGuard = null; // {endMs}
+
+  // ---------- Utilities ----------
+  const msToClock = (ms) => {
+    if (ms == null || isNaN(ms)) return '—';
+    const t = Math.max(0, Math.round(ms));
+    const totalSec = Math.floor(t/1000);
+    const m = Math.floor(totalSec/60);
+    const s = totalSec%60;
+    const msPart = t%1000;
+    return `${m}:${String(s).padStart(2,'0')}.${String(msPart).padStart(3,'0')}`;
+  };
+  const toSrt = (ms) => {
+    const t = Math.max(0, Math.round(ms));
+    const HH = String(Math.floor(t/3600000)).padStart(2,'0');
+    const MM = String(Math.floor((t%3600000)/60000)).padStart(2,'0');
+    const SS = String(Math.floor((t%60000)/1000)).padStart(2,'0');
+    const mmm = String(t%1000).padStart(3,'0');
+    return `${HH}:${MM}:${SS},${mmm}`;
+  };
+
+  function extractVideoId(url) {
+    if (!url) return null;
+    try{
+      const u = new URL(url);
+      if (u.hostname === 'youtu.be') return u.pathname.slice(1);
+      if (u.hostname.includes('youtube.com')){
+        if (u.searchParams.get('v')) return u.searchParams.get('v');
+        const p = u.pathname;
+        const m1 = p.match(/\/shorts\/([a-zA-Z0-9_-]{6,})/); if (m1) return m1[1];
+        const m2 = p.match(/\/embed\/([a-zA-Z0-9_-]{6,})/); if (m2) return m2[1];
+      }
+    }catch(e){ if (/^[a-zA-Z0-9_-]{6,}$/.test(url)) return url; }
+    return null;
+  }
+
+  function nowMs(){
+    if (using === 'youtube' && ytPlayer && ytPlayer.getCurrentTime) return Math.round(ytPlayer.getCurrentTime()*1000);
+    if (using === 'local' && nativeVideo) return Math.round(nativeVideo.currentTime*1000);
+    return liveMs;
+  }
+
+  const setLive = (ms) => { liveMs = Math.max(0, Math.round(ms||0)); document.getElementById('liveTime').textContent = msToClock(liveMs); };
+
+  // ---------- Persistence ----------
+  function normalizedBlocks(){
+    return blocks.map(b=>({ id:b.id, startMs:+b.startMs, endMs:+b.endMs, startClock:msToClock(b.startMs), endClock:msToClock(b.endMs), durationMs: Math.max(0,(b.endMs||0)-(b.startMs||0)), durationClock: msToClock(Math.max(0,(b.endMs||0)-(b.startMs||0))), title_local: b.title_local||'', title_translated: b.title_translated||'' }));
+  }
+  function renderJson(){ const payload={ videoId, source:using||'none', exportedAt:new Date().toISOString(), blocks:normalizedBlocks() }; document.getElementById('jsonView').value = JSON.stringify(payload,null,2); }
+  function save(){ if (!videoId && !using) return; localStorage.setItem(`yt_segments_${videoId||'local'}`, JSON.stringify(blocks)); renderJson(); renderSrtPreviews(); }
+  function load(){ try{ const raw = localStorage.getItem(`yt_segments_${videoId||'local'}`); const arr = raw?JSON.parse(raw):[]; blocks = arr.map(b=>({ id:b.id, startMs:+b.startMs, endMs:+b.endMs, title_local:b.title_local||b.title||'', title_translated:b.title_translated||b.notes||'' })); }catch{ blocks=[] } renderTable(); renderJson(); renderSrtPreviews(); }
+
+  // ---------- SRT ----------
+  function buildSrt(which){
+    const rows = normalizedBlocks().sort((a,b)=>a.startMs-b.startMs).map((b,i)=>{ const text = which==='local'?b.title_local:b.title_translated; return `${i+1}\n${toSrt(b.startMs)} --> ${toSrt(b.endMs)}\n${text||''}\n`; });
+    return rows.join('\n');
+  }
+  function renderSrtPreviews(){ document.getElementById('srtLocalView').value = buildSrt('local'); document.getElementById('srtTransView').value = buildSrt('trans'); }
+
+  function download(filename,text,type){ const blob = new Blob([text],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href); }
+
+  // ---------- Table ----------
+  function renderTable(){ const tbody=document.getElementById('blocksTbody'); tbody.innerHTML=''; blocks.slice().sort((a,b)=>a.startMs-b.startMs).forEach((b)=>{
+    const tr=document.createElement('tr');
+    const tdLocal=document.createElement('td'); const localTa=document.createElement('textarea'); localTa.className='smallTa'; localTa.value=b.title_local||''; localTa.placeholder='Title - Local Language (required)'; localTa.addEventListener('change',()=>{ b.title_local = localTa.value; save(); }); tdLocal.appendChild(localTa);
+    const tdTrans=document.createElement('td'); const transTa=document.createElement('textarea'); transTa.className='smallTa'; transTa.value=b.title_translated||''; transTa.placeholder='Title - Translated'; transTa.addEventListener('change',()=>{ b.title_translated = transTa.value; save(); }); tdTrans.appendChild(transTa);
+    const tdIn=document.createElement('td'); const inNum=document.createElement('input'); inNum.type='number'; inNum.step='1'; inNum.value=b.startMs; const inClock=document.createElement('div'); inClock.className='muted small'; inClock.textContent = msToClock(b.startMs); inNum.addEventListener('change',()=>{ b.startMs = Number(inNum.value||0); save(); renderTable(); }); tdIn.append(inNum,inClock);
+    const tdOut=document.createElement('td'); const outNum=document.createElement('input'); outNum.type='number'; outNum.step='1'; outNum.value=b.endMs; const outClock=document.createElement('div'); outClock.className='muted small'; outClock.textContent = msToClock(b.endMs); outNum.addEventListener('change',()=>{ b.endMs = Number(outNum.value||0); save(); renderTable(); }); tdOut.append(outNum,outClock);
+    const tdDur=document.createElement('td'); tdDur.textContent = msToClock(Math.max(0,(b.endMs||0)-(b.startMs||0)));
+    const tdAct=document.createElement('td'); tdAct.className='right nowrap'; const prev=document.createElement('button'); prev.className='btn'; prev.textContent='▶︎'; prev.addEventListener('click',()=> previewSegment(b.startMs,b.endMs)); const del=document.createElement('button'); del.className='btn danger'; del.textContent='Delete'; del.addEventListener('click',()=>{ blocks = blocks.filter(x=>x!==b); save(); renderTable(); }); tdAct.append(prev,document.createTextNode(' '),del);
+    tr.append(tdLocal,tdTrans,tdIn,tdOut,tdDur,tdAct); tbody.appendChild(tr);
+  }); }
+
+  // ---------- Player Abstraction ----------
+  function ensureYT(){ if (ytApiReady) return Promise.resolve(); return new Promise(res=>{ const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); window.onYouTubeIframeAPIReady = ()=>{ ytApiReady=true; res(); }; }); }
+
+  function createYTPlayer(containerId, id){
+    if (ytPlayer) { try{ ytPlayer.destroy?.(); }catch{} ytPlayer=null; }
+    ytPlayer = new YT.Player(containerId, {
+      videoId: id,
+      playerVars:{playsinline:1, rel:0},
+      events:{ onReady:()=>{}, onStateChange:(e)=>{ if (e.data===YT.PlayerState.PLAYING) onPlay(); if (e.data===YT.PlayerState.PAUSED) onPause(); if (e.data===YT.PlayerState.ENDED) onEnded(); } }
+    });
+  }
+
+  function mountNativeVideo(urlOrFile){
+    // clear yt iframe if present
+    const container = document.getElementById('player'); container.innerHTML='';
+    const video = document.createElement('video'); video.id='nativeVideo'; video.style.width='100%'; video.style.height='100%'; video.controls=false; video.preload='metadata';
+    video.src = urlOrFile; video.crossOrigin = 'anonymous';
+    container.appendChild(video);
+    nativeVideo = video;
+    // wire simple events
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    video.addEventListener('ended', onEnded);
+  }
+
+  function useYouTube(id){ using='youtube'; document.getElementById('sourceType').textContent = 'YouTube'; videoId = id; ensureYT().then(()=>{ // instantiate player in #player
+    document.getElementById('player').innerHTML = '<div id="ytFrame"></div>'; createYTPlayer('ytFrame', id); setTimeout(()=>{ setMarkButtons(false); startPolling(); }, 200); load(); }); }
+
+  function useLocal(fileOrUrl){ using='local'; document.getElementById('sourceType').textContent = 'Local File'; videoId = videoId || 'local'; stopYTIfAny(); if (fileOrUrl instanceof File){ const url = URL.createObjectURL(fileOrUrl); mountNativeVideo(url); nativeVideo.onloadedmetadata = ()=>{ setMarkButtons(false); load(); }; } else { mountNativeVideo(fileOrUrl); nativeVideo.onloadedmetadata = ()=>{ setMarkButtons(false); load(); }; } }
+
+  function stopYTIfAny(){ if (ytPlayer && ytPlayer.destroy) { try{ ytPlayer.destroy(); }catch{} } ytPlayer = null; }
+
+  function playVideo(){ if (using==='youtube' && ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo(); else if (using==='local' && nativeVideo) nativeVideo.play(); }
+  function pauseVideo(){ if (using==='youtube' && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); else if (using==='local' && nativeVideo) nativeVideo.pause(); }
+  function stopVideo(){ if (using==='youtube' && ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); else if (using==='local' && nativeVideo){ nativeVideo.pause(); nativeVideo.currentTime = 0; } }
+  function seekTo(seconds, allowSeekAhead=true){ if (using==='youtube' && ytPlayer && ytPlayer.seekTo) { ytPlayer.seekTo(seconds, allowSeekAhead); } else if (using==='local' && nativeVideo){ nativeVideo.currentTime = Math.max(0, seconds); } }
+
+  function onPlay(){ startPolling(); setMarkButtons(false); pausedTimeMs=null; }
+  function onPause(){ stopPolling(); pausedTimeMs = nowMs(); setLive(pausedTimeMs); setMarkButtons(true); }
+  function onEnded(){ stopPolling(); pausedTimeMs = nowMs(); setLive(pausedTimeMs); setMarkButtons(true); }
+
+  // Polling
+  function startPolling(){ stopPolling(); pollHandle = setInterval(()=>{ setLive(nowMs()); if (_previewGuard && liveMs >= _previewGuard.endMs - 80){ pauseVideo(); _previewGuard=null; setMarkButtons(true); pausedTimeMs = liveMs; } }, 80); }
+  function stopPolling(){ if (pollHandle){ clearInterval(pollHandle); pollHandle=null; } }
+
+  // Preview segment
+  function previewSegment(startMs,endMs){ if (!using) return; const s = Math.max(0,(startMs||0)/1000); const e = Math.max(s+0.05,(endMs||0)/1000); _previewGuard = { endMs: Math.round(e*1000) };
+    if (using==='youtube' && ytPlayer && ytPlayer.loadVideoById){ setLive(Math.round(s*1000)); ytPlayer.loadVideoById({ videoId, startSeconds: s, endSeconds: e, suggestedQuality:'default' }); }
+    else if (using==='local' && nativeVideo){ nativeVideo.currentTime = s; setLive(Math.round(s*1000)); nativeVideo.play(); }
+  }
+
+  function seekBy(ms){ const base = (pausedTimeMs!=null) ? pausedTimeMs : liveMs; const target = Math.max(0, base + ms); const seconds = target/1000; seekTo(seconds); setLive(target); if (!isPlaying()) pausedTimeMs = target; }
+  function isPlaying(){ if (using==='youtube') return ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState()===1; if (using==='local' && nativeVideo) return !nativeVideo.paused && !nativeVideo.ended; return false; }
+
+  function setMarkButtons(enabled){ document.getElementById('markIn').disabled = !enabled; document.getElementById('markOut').disabled = !enabled; }
+
+  function pausedOrLive(){ return (pausedTimeMs!=null) ? pausedTimeMs : liveMs; }
+
+  // ---------- Wire up UI ----------
+  document.getElementById('loadBtn').addEventListener('click', async ()=>{
+    const id = extractVideoId(document.getElementById('ytUrl').value.trim());
+    if (!id){ alert('Could not parse YouTube id — you can upload a local video instead.'); return; }
+    try{ await ensureYT(); useYouTube(id); }catch(e){ alert('Failed to load YouTube player; try uploading a local video.'); }
+  });
+
+  // local file input
+  document.getElementById('localFile').addEventListener('change', (e)=>{
+    const f = e.target.files?.[0]; if (!f) return; useLocal(f); document.getElementById('ytUrl').value = '';
+  });
+
+  // switch view — attempts to keep time
+  document.getElementById('switchBtn').addEventListener('click', async ()=>{
+    // if currently youtube, and a local source available in cache (maybe previously uploaded), switch to local URL if exists
+    if (using==='youtube'){
+      // attempt to fetch progressive URL? Not possible due to CORS — so notify user
+      alert('Switching from YouTube to native view is supported only when you upload a local file. Please use the Upload Local Video button to use native playback.');
+    } else if (using==='local'){
+      alert('You are using local playback. You can paste a YouTube URL and click Load Video to switch to YouTube (time will not be preserved automatically).');
+    } else {
+      alert('No video loaded. Use YouTube URL or Upload Local Video.');
+    }
+  });
+
+  document.getElementById('playBtn').addEventListener('click', ()=> playVideo());
+  document.getElementById('togglePauseBtn').addEventListener('click', ()=>{ if (isPlaying()) pauseVideo(); else playVideo(); });
+  document.getElementById('stopBtn').addEventListener('click', ()=>{ stopVideo(); stopPolling(); setMarkButtons(false); pausedTimeMs=null; setLive(0); });
+
+  document.querySelectorAll('[data-seek]').forEach(btn=> btn.addEventListener('click', ()=> seekBy(Number(btn.getAttribute('data-seek')))));
+
+  document.getElementById('markIn').addEventListener('click', ()=>{ if (document.getElementById('markIn').disabled) return; markInMs = pausedOrLive(); if (markOutMs!=null && markOutMs < markInMs){ const t=markInMs; markInMs=markOutMs; markOutMs=t; } setLive(markInMs); document.getElementById('inVal').textContent = msToClock(markInMs); });
+  document.getElementById('markOut').addEventListener('click', ()=>{ if (document.getElementById('markOut').disabled) return; markOutMs = pausedOrLive(); if (markInMs!=null && markOutMs < markInMs){ const t=markInMs; markInMs=markOutMs; markOutMs=t; } setLive(markOutMs); document.getElementById('outVal').textContent = msToClock(markOutMs); });
+  document.getElementById('clearMarks').addEventListener('click', ()=>{ markInMs=markOutMs=null; document.getElementById('inVal').textContent='—'; document.getElementById('outVal').textContent='—'; });
+
+  document.getElementById('previewBlock').addEventListener('click', ()=>{ if (markInMs==null || markOutMs==null) return alert('Set both In and Out marks.'); previewSegment(markInMs, markOutMs); });
+
+  document.getElementById('addBlock').addEventListener('click', ()=>{
+    if (!using) return alert('Load a YouTube URL or upload a local video first.');
+    if (markInMs==null || markOutMs==null) return alert('Set both In and Out marks.');
+    const title_local = document.getElementById('titleLocal').value.trim(); if (!title_local) return alert('Local-language Title is required.');
+    const title_translated = document.getElementById('titleTrans').value.trim(); const startMs = Math.min(markInMs, markOutMs); const endMs = Math.max(markInMs, markOutMs); if (endMs<=startMs) return alert('End must be after Start.'); const id = crypto.randomUUID?.()||String(Date.now()); blocks.push({ id, startMs, endMs, title_local, title_translated }); save(); renderTable(); markInMs=markOutMs=null; document.getElementById('inVal').textContent='—'; document.getElementById('outVal').textContent='—'; document.getElementById('titleLocal').value=''; document.getElementById('titleTrans').value='';
+  });
+
+  // Export / Import
+  document.getElementById('exportJsonBtn').addEventListener('click', ()=>{ const payload={ videoId, source:using||'none', exportedAt:new Date().toISOString(), blocks: normalizedBlocks() }; download(`segments_${videoId||'unknown'}.json`, JSON.stringify(payload,null,2), 'application/json'); });
+  document.getElementById('exportSrtLocalBtn').addEventListener('click', ()=> download(`segments_${videoId||'unknown'}_local.srt`, buildSrt('local'), 'text/plain'));
+  document.getElementById('exportSrtTransBtn').addEventListener('click', ()=> download(`segments_${videoId||'unknown'}_trans.srt`, buildSrt('trans'), 'text/plain'));
+
+  document.getElementById('importBtn').addEventListener('click', ()=> document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change',(e)=>{ const file = e.target.files?.[0]; if (!file) return; const fr=new FileReader(); fr.onload=()=>{ try{ const data=JSON.parse(fr.result); if (data.videoId && videoId && data.videoId!==videoId){ if (!confirm(`Imported JSON is for ${data.videoId}, but current is ${videoId}. Import anyway?`)) return; } if (Array.isArray(data.blocks)){ blocks = data.blocks.map(b=>({ id:b.id||(crypto.randomUUID?.()||String(Math.random())), startMs:+b.startMs, endMs:+b.endMs, title_local:b.title_local||b.title||'', title_translated:b.title_translated||b.notes||'' })); save(); renderTable(); } else alert('JSON does not contain a valid blocks array.'); }catch{ alert('Failed to parse JSON.'); } }; fr.readAsText(file); });
+
+  // Auto-download backup
+  let autoDlTimer = null; document.getElementById('autoDl').addEventListener('change', ()=>{ if (document.getElementById('autoDl').checked){ if (autoDlTimer) clearInterval(autoDlTimer); autoDlTimer = setInterval(()=>{ const payload={ videoId, source:using||'none', exportedAt:new Date().toISOString(), blocks:normalizedBlocks() }; download(`backup_${videoId||'unknown'}_${Date.now()}.json`, JSON.stringify(payload), 'application/json'); }, 120000); } else { if (autoDlTimer) clearInterval(autoDlTimer); autoDlTimer=null; } });
+
+  // Keyboard controls
+  window.addEventListener('keydown',(e)=>{ if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return; if (e.code==='Space'){ e.preventDefault(); if (isPlaying()) pauseVideo(); else playVideo(); } if (e.key.toLowerCase()==='i'){ e.preventDefault(); if (!document.getElementById('markIn').disabled) document.getElementById('markIn').click(); } if (e.key.toLowerCase()==='o'){ e.preventDefault(); if (!document.getElementById('markOut').disabled) document.getElementById('markOut').click(); } if (e.key==='ArrowLeft'){ e.preventDefault(); seekBy(e.shiftKey?-5000:-1000); } if (e.key==='ArrowRight'){ e.preventDefault(); seekBy(e.shiftKey?5000:1000); } if (e.key===','){ e.preventDefault(); seekBy(-100); } if (e.key==='.'){ e.preventDefault(); seekBy(100); } });
+
+  // Clear all
+  document.getElementById('clearAllBtn').addEventListener('click', ()=>{ if (confirm('Clear ALL blocks for this video?')){ blocks=[]; save(); renderTable(); } });
+
+  // Danger: delete on unload (ensure saved)
+  window.addEventListener('beforeunload', ()=>{ save(); });
+
+  // Init: try to load previously saved local
+  (function init(){ try{ const last = localStorage.getItem('last_video_id'); if (last) { videoId = last; load(); } }catch{} })();
+
+</script>
+</body>
+</html>
